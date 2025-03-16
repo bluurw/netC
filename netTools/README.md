@@ -1,8 +1,6 @@
-NetC
+Rep direcionado a ferramentas feitas em C para redes.
 
-Criacao de codigos em C, voltado para ferramentas de uso em rede.
-
--Ping
--Telnet
--Traceroute
--Nslookup
+- ping
+- nslookup
+- traceroute
+- telnet
