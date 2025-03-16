@@ -1,11 +1,12 @@
-#include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
 #include <sys/socket.h>
-#include <stdio.h>
-#include <netinet/ip_icmp.h>
+#include <stdlib.h>
 #include <arpa/inet.h>
+#include <netinet/ip_icmp.h>
 #include <unistd.h>
 #include <time.h>
+
 
 unsigned short checksum(void *b, int len) {
     unsigned short *buf = b;
@@ -21,48 +22,63 @@ unsigned short checksum(void *b, int len) {
     return ~sum;
 }
 
-int main() {
+int ping(const char *target) {
     int sock;
-    struct sockaddr_in addr;
+    struct sockaddr_in addr, local_addr, r_addr;
+    socklen_t addr_len = sizeof(r_addr);
+    socklen_t local_addr_len = sizeof(local_addr);
     char packet[64];
-    char target[12];
+    char response[1024];
 
-    strcpy(target, "8.8.8.8");
-
-    // Socket cru
     sock = socket(AF_INET, SOCK_RAW, IPPROTO_ICMP);
     if (sock < 0) {
-        perror("Fail Create Socket");
+        perror("Failed on create socket");
         return 1;
     }
 
     addr.sin_family = AF_INET;
     addr.sin_addr.s_addr = inet_addr(target);
 
-    // Datagrama 
+    // socket raw
     struct icmphdr *icmp = (struct icmphdr *)packet;
     memset(packet, 0, sizeof(packet));
-    icmp->type = ICMP_ECHO;
+    icmp->type = ICMP_ECHO; // tipo do protocolo
     icmp->code = 0;
     icmp->un.echo.id = getpid();
     icmp->un.echo.sequence = 1;
     icmp->checksum = checksum(icmp, sizeof(packet));
 
     if (sendto(sock, packet, sizeof(packet), 0, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
-        perror("Erro ao enviar pacote");
+        perror("Fail send package");
         close(sock);
         return 1;
     }
 
-    printf("Send ping %s \n", target);
-
-    char response[1024];
-    if (recv(sock, response, sizeof(response), 0) > 0) {
-        printf("Recived response \n");
+    if (getsockname(sock, (struct sockaddr *)&local_addr, &local_addr_len) == 0 ) {
+        printf("Source IP: %s\n", inet_ntoa(local_addr.sin_addr));
     } else {
-        perror("Fail response \n");
+        perror("Fail get source IP");
+    }
+
+    printf("Destination IP: %s\n", inet_ntoa(addr.sin_addr));
+
+    if (recvfrom(sock, response, sizeof(response), 0, (struct sockaddr *)&r_addr, &addr_len) > 0) {
+        printf("Recived response: %s\n", inet_ntoa(r_addr.sin_addr));
+    } else {
+        perror("Fail obtain response");
     }
 
     close(sock);
+    return 0;
+}
+
+int main() {
+    const char target[16] = "192.168.0.10";
+    int result;
+
+    result = ping(target);
+
+    printf("%s", result);
+
     return 0;
 }
