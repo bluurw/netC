@@ -1,2 +1,182 @@
-these are amateur scripts only
-=)
+#####INFORMACOES
+
+>   Representa codigo
+>>  Representa retorno
+
+Alguns trechos possuem ingles.
+
+
+#####INTRODUCAO
+A lib referente ao socket e sys/socket.
+Para iniciar:
+
+/*
+#include <stdio.h> // lib comum para print
+#include <sys/socket.h>
+
+int main(void) {
+    int sockfd = socket(AF_LOCAL, SOCK_STREAM, 0);
+    printf("Socket: %d\n", sockfd);
+    return 0;
+}
+*/
+>> 3
+
+O retorno indica que o socket foi criado com sucesso. 
+O numero retornado, indica o id do descritor.
+
+Descritores (file descriptor) e um identificador numerico.
+Eles sao utilizados para representar recursos abertos como sockets, arquivos, pipes, ou dispositivos.
+
+0 -> Entrada padrao (stdin): Recebe dados do teclado;
+1 -> Saida padrao (stdout): Envia dados;
+2 -> Erro padrao (stderr): Recebe e apresenta mensagens de erro.
+
+... desta forma, o proximo descrito vago seria o 3, e assim sucessivamente.
+
+Focando no codigo, temos a seguinte linha:
+> int sockfd = socket(AF_LOCAL, SOCK_STREAM, 0);
+
+Estas configuracoes sao:
+> int sockfd = socket(domain, type, protocol);
+
+Pametros:
+domain -> Representa o dominio da comunicacao.
+    - AF_LOCAL : Usado para se comunicar localmente LAN;
+    - AF_INET : IPv4 WAN;
+    - AF_INET6 : IPv6 WAN;
+    - AF_UNIX : Usado para comunicacao entre processos;
+    - AF_PACKET : Usado para acesso direto ao nivel de link (camada de enlace), ethernet
+    - AF_NETLINK : Usado para comunicacao entre processos de espaco de usuario e kernel
+    - AF_BLUETOOTH : Comunicacao via bluetooth
+    - AF_CAN : Direcionado a redes CAN, comum em sistemas embarcados
+    - AF_ALG : Para comunicacao com o subsistema de criptografia do kernel linux
+
+type -> Especifica o tipo de socket a ser utilizado
+    - SOCK_STREAM : Socket TCP
+    - SOCK_DGRAM : Socket UDP
+    - SOCK_RAW : Socket CRU
+    - SOCK_SEQPACKET : Socket do tipo TCP mas com um tamanho fixo, ao inves de continuo
+    - SOCK_RDM : Socket que nao fornece uma entrega sequencial, mas confiavel
+
+protocol -> Especifica o protocolo que sera utilizado.
+Estes protocolos sao baseados no dominio que esta sendo utilizado.
+    - AF_INET | AF_INET6
+        - IPPROTO_TCP : Representa o protocolo TCP
+        - IPPROTO_UDP : Representa o protocolo UDP
+        - IPPROTO_ICMP : Usado pelo protocolo ICMP
+        - IPPROTO_RAW : Usado para criar sockets raw, ao nivel pacote
+    
+    - AF_UNIX | AF_LOCAL
+        - Por padrao e definido como 0
+    
+    - Outros
+        - AF_PACKET: ETH_P_ALL
+
+
+#####CONFIGURACAO DO SETSOCKOPT
+O setsockopt permite alterar as configuracoes padroes do socket criado.
+
+> int setsockopt(int socket, int level, int option_name, const void *option_value, socklen_t option_len);
+
+Parametros:
+socket -> O descritor do socket que sera configurado
+level -> Determina a camada onde sera aplicado
+    - SOL_SOCKET : Para opcoes do nivel socket
+    - IPPROTO_TCP : Para opcoes especificas do protocolo TCP
+    - IPPROTO_IP : Para opcoes relacionadas ao IPv4
+    - IPPROTO_IPV6 : Para opcoes relacionadas ao IPv6
+option_name -> O nome da opcao a ser configurada
+    - SO_REUSEADDR : Permite a utilizacao de enderecos que estao em standby.
+        *Ex: um par de socket que esta sendo finalizado.
+    - SO_RCVBUF : Define o tamanho do buffer de recebimento
+    - SO_SNDBUF : Define o tamanho do buffer de envio
+    - SO_LINGER : 
+    - TCP_NODELAY : Desativa o algoritimo do Nagle no TCP
+option_value -> Ponteiro para o valor da opcao
+option_len -> O tamanho apontado por option_value.
+Este paramentro e importante, pois define o tamanho que o sistema deve reservar.
+
+
+/*
+#include <stdio.h>
+#include <sys/socket.h>
+
+int main() {
+    int sockfd = socket(AF_LOCAL, SOCK_STREAM, 0);
+    if (sockfd < 0) {
+        perror("Failed to create socket \n");
+        return 1;
+    }
+
+    int optval = 1;
+    if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval)) < 0) {
+        perror("Failed to configured socket \n");
+        return 1;
+    }
+
+    printf("SO_REUSEADDR configured successful \n");
+    return 0;
+}
+*/
+>> SO_REUSEADDR configured successful 
+
+Esta linha: 
+> if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval)) < 0) {}
+
+Vai verificar se o retorno sera menor que 0, o que caso nao seja, e um resultado favoravel.
+
+O primeiro parametro sockfd faz referencia ao socket criado;
+O segundo faz referencia a camada, SOCKET;
+O terceiro, qual sera a utilidade, Reuso;
+O quarto, um ponteiro, indica o optval, um variavel que declaramos e atribuimos o valor 1, ativado;
+O quinto define o tamanho do parametro para o sistema
+
+Em sumo, sera visto se e possivel reaproveitar o socket
+
+Em outro exemplo do setsockopt:
+
+/*
+#include <stdio.h>
+#include <sys/socket.h>
+
+int main() {
+    int sockfd = socket(AF_LOCAL, SOCK_STREAM, 0);
+    if (sockfd < 0) {
+        perror("Failed to created sock");
+    }
+
+    int buffer_size = 8192;
+    if (setsockopt(sockfd, SOL_SOCKET, SO_RCVBUF, &buffer_size, sizeof(buffer_size)) < 0) {
+        perror("Failed to configured socket");
+        return 1;
+    }
+
+    printf("SO_BUFFER configured successful \n");
+    return 0;
+}
+*/
+> SO_BUFFER configured successful
+
+Neste trecho:
+if (setsockopt(sockfd, SOL_SOCKET, SO_RCVBUF, &buffer_size, sizeof(buffer_size)) < 0) {}
+
+A logica e a mesma do exemplo anterior, pontuando que nao sera um reaproveitamento de soket.
+Neste caso, o que sera configurado e o buffer que o socket criado pode enviar.
+
+
+
+
+
+
+... Artigo em progresso ...
+
+
+Algumas referencias:
+https://pubs.opengroup.org/onlinepubs/009604599/basedefs/sys/socket.h.html
+
+
+Outras libs relacionadas:
+<netinet/in.h>
+<arpa/inet.h>
+<unistd.h>
